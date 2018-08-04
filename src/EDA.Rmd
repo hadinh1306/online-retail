@@ -1,0 +1,112 @@
+---
+title: "EDA"
+author: "Ha Dinh"
+date: '2018-08-02'
+output: html_document
+---
+
+```{r setup, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(Hmisc)
+```
+
+Load data.
+
+```{r}
+df <- read_csv("../data/online_retail.csv")
+head(df)
+```
+
+# Data Structure and Validation
+
+Look at the structure of data to see if we need to transform any variables for later analysis, or if we have missing values and any outliers.
+
+```{r}
+str(df)
+summary(df)
+```
+
+From data summary, 
+
+1. I confirm that `UnitPrice` is larger than 0. `Quantity` has negative numbers which indicate returns.
+
+2. I'm curious how many countries are there in the data, and how many transactions each country had.
+
+There are 38 countries present in this dataset, but 92% of observations belong to United Kingdom. Customer segmentation in different countries can be different. Thus, for this project, I'll focus on United Kingdom only. 
+
+```{r}
+df %>% 
+  group_by(Country) %>% 
+  summarise(n = n()) %>% 
+  arrange(desc(n))
+```
+
+Let's filter data to get only observations from United Kingdom.
+
+```{r}
+ukdf <- df %>% 
+  filter(Country == "United Kingdom")
+```
+
+3. There are 66659 missing values in `CustomerID`. Since the purpose of this project is to segment customers using RFM methods, we need `CustomerID` to identify each customer. We can't identify through `InvoiceNo` since each customer can purchase more than 1 time. Thus, I'll remove all of these missing values. 
+
+```{r}
+summary(ukdf)
+```
+
+```{r}
+nonadf <- ukdf %>% 
+  filter(!is.na(CustomerID))
+```
+
+2. Transform `InvoiceDate` to date-time form. Note that transactions were recorded from December 1st, 2010.
+
+```{r}
+nonadf$InvoiceDate <- mdy_hm(nonadf$InvoiceDate)
+```
+
+3. There are outliers in `Quantity` and `UnitPrice`. Check distribution.
+
+Ploting ECDF graphs for both `Quantity` and `UnitPrice`, I see that there are less than 5 outliers for each variable.
+
+```{r}
+plot(ecdf(nonadf$Quantity))
+plot(ecdf(nonadf$UnitPrice))
+```
+
+I'm curious which customer(s) related to the 2 outliers in `Quantity`. It turns out that they belong to a single customer. He/she purchased a lot and returned them all.  
+
+```{r}
+nonadf %>% 
+  filter(Quantity > 50000 | Quantity < -50000)
+```
+
+Let's check out `UnitPrice` outliers. Although from the ECDF plot, it appears that there are only 3 outliers, base on this table below, there are actually 4. 
+
+3 of them belong to customer `16029`. He/she bought a `POSTAGE` worths 8142.75 and returned it, and also return a `Manual` worths 6930 on the same day. 
+
+```{r}
+nonadf %>% 
+  filter(UnitPrice > 5000)
+```
+
+For now, I decide to keep all outliers since there is no clear insights about them, and there are less than 5 of them. 
+
+# Data Preparation
+
+The project focuses on customer segmentation using RFM, which stands for: 
+
+- RECENCY (R): Days since last purchase
+- FREQUENCY (F): Total number of purchases
+- MONETARY VALUE (M): Total money this customer spent
+
+I came across this [resource](https://towardsdatascience.com/find-your-best-customers-with-customer-segmentation-in-python-61d602f9eee6) and find it helpful to refer to for RFM model. My goal is to assign score for RMF and then segment for each customer base on his/her score. To do this, I need to calculate recency, frequency, and monetary value. 
+
+## Recency
+
+
+
