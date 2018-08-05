@@ -11,7 +11,8 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 library(lubridate)
-library(Hmisc)
+# library(Hmisc)
+library(stringr)
 ```
 
 Load data.
@@ -63,10 +64,10 @@ nonadf <- ukdf %>%
   filter(!is.na(CustomerID))
 ```
 
-2. Transform `InvoiceDate` to date-time form. Note that transactions were recorded from December 1st, 2010.
+2. Transform `InvoiceDate` from character to date form, removing hour and minute information. Note that transactions were recorded from December 1st, 2010.
 
 ```{r}
-nonadf$InvoiceDate <- mdy_hm(nonadf$InvoiceDate)
+nonadf$InvoiceDate <- as_date(mdy_hm(nonadf$InvoiceDate))
 ```
 
 3. There are outliers in `Quantity` and `UnitPrice`. Check distribution.
@@ -107,6 +108,54 @@ The project focuses on customer segmentation using RFM, which stands for:
 I came across this [resource](https://towardsdatascience.com/find-your-best-customers-with-customer-segmentation-in-python-61d602f9eee6) and find it helpful to refer to for RFM model. My goal is to assign score for RMF and then segment for each customer base on his/her score. To do this, I need to calculate recency, frequency, and monetary value. 
 
 ## Recency
+
+To calculate days since last purchase, I need to know what is the last day recorded in this data. The result is June 26th 2011. I will take June 27th 2011 as the present time to calculate recency. 
+
+```{r}
+max(nonadf$InvoiceDate)
+```
+
+```{r}
+present = as_date("2011-06-27")
+```
+
+Now I calculate the recency table including `CustomerID` and `recency` - days since last purchase. Note that for this calculation, there is an assumption: There are many reasons that can lead to a return and there is no record of these reasons in the dataset. Thus, as long as customers make a purchase, we count their good intention toward our business and account this into recency. 
+
+```{r}
+(recency_df <- nonadf %>% 
+  filter(Quantity > 0) %>% 
+  group_by(CustomerID) %>% 
+  summarise(recency = as.integer(present - max(InvoiceDate))))
+```
+
+## Frequency
+
+To calculate the total number of purchases, I need to consider number of returns as well. 
+
+`Total number of purchases = number of purchases - number of returns`
+
+From my quick inspection for `UnitPrice` outliers above, I see that only returns have `InvoiceNo` starting with `C`. I confirm here that only `InvoiceNo`s starting with `C` are returns. 
+
+```{r}
+sum(nonadf[str_detect(nonadf$InvoiceNo, "^C"), ]$Quantity > 0)
+```
+
+Now I calculate the number of purchases for each `CustomerID`.
+
+```{r}
+(frequency_df <- nonadf %>% 
+  # create new column to detect return; 
+  # if return then 0, else (if purchase) then 1
+  mutate(return = ifelse(str_detect(nonadf$InvoiceNo, "^C"), 0, 1)) %>% 
+  # calculate number of purchases for each customer
+  group_by(CustomerID) %>% 
+  summarise(frequency = sum(return)))
+```
+
+
+
+
+
 
 
 
