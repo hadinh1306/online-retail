@@ -134,10 +134,14 @@ To calculate the total number of purchases, I need to consider number of returns
 
 `Total number of purchases = number of purchases - number of returns`
 
-From my quick inspection for `UnitPrice` outliers above, I see that only returns have `InvoiceNo` starting with `C`. I confirm here that only `InvoiceNo`s starting with `C` are returns. 
+From my quick inspection for `UnitPrice` outliers above, I see that only returns have `InvoiceNo` starting with `C`. I confirm here that only `InvoiceNo`s starting with `C` are returns, while `InvoiceNo`s starting with numbers are purchases.
 
 ```{r}
+# check if there are any InvoiceNo starting with C have positive quantity 
 sum(nonadf[str_detect(nonadf$InvoiceNo, "^C"), ]$Quantity > 0)
+
+# check if there are any InvoiceNo starting with numbers have negative quantity 
+sum(nonadf[str_detect(nonadf$InvoiceNo, "^[:digit:]"), ]$Quantity < 0)
 ```
 
 Now I calculate the number of purchases for each `CustomerID`.
@@ -152,6 +156,17 @@ Now I calculate the number of purchases for each `CustomerID`.
   summarise(frequency = sum(return)))
 ```
 
+## Monetary value
+
+To calculate the total money each customer spend, I take the sum of his/her revenue and loss. 
+
+`Revenue/Loss = Quantity * Unit price`
+
+```{r}
+nonadf %>% 
+  group_by(CustomerID) %>% 
+  summarise(monetary_value = sum(Quantity*UnitPrice))
+```
 
 
 
