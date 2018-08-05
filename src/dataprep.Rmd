@@ -9,9 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(readr)
 library(dplyr)
-library(ggplot2)
 library(lubridate)
-# library(Hmisc)
 library(stringr)
 ```
 
@@ -107,6 +105,16 @@ The project focuses on customer segmentation using RFM, which stands for:
 
 I came across this [resource](https://towardsdatascience.com/find-your-best-customers-with-customer-segmentation-in-python-61d602f9eee6) and find it helpful to refer to for RFM model. My goal is to assign score for RMF and then segment for each customer base on his/her score. To do this, I need to calculate recency, frequency, and monetary value. 
 
+Before I go into calculation and scoring, I want to understand each customer segment I assign to customers. 
+
+| Segment | Description | 
+| Best Customers | Bought most recently and most often, and spend the most | 
+| Loyal Customers | Buy most frequently | 
+| Big Spenders | Spend the most | 
+| Almost Lost | Haven't purchased for some time, but purchased frequently and spend the most | 
+| Lost Customers | Haven't purchased for longer time than `Almost Lost` ones, but purchased frequently and spend the most | 
+| Lost Cheap Customers | Last purchased long ago, purchased few, and spent little | 
+
 ## Recency
 
 To calculate days since last purchase, I need to know what is the last day recorded in this data. The result is June 26th 2011. I will take June 27th 2011 as the present time to calculate recency. 
@@ -163,10 +171,57 @@ To calculate the total money each customer spend, I take the sum of his/her reve
 `Revenue/Loss = Quantity * Unit price`
 
 ```{r}
-nonadf %>% 
+(money_df <- nonadf %>% 
   group_by(CustomerID) %>% 
-  summarise(monetary_value = sum(Quantity*UnitPrice))
+  summarise(monetary_value = sum(Quantity*UnitPrice)))
 ```
+
+## RFM table 
+
+Now I combine results from recency, frequency, and monetary value tables to a single RFM dataframe. 
+
+```{r}
+rfm_df <- inner_join(recency_df, frequency_df) %>% 
+  inner_join(money_df)
+
+# View first 5 observations of RFM table
+head(rfm_df, 5)
+```
+
+Customer `12346` made only 1 purchase 160 days ago, and returned his/her purchase. This customer is certainly not our best one. Let's see what he/she purchased and returned. 
+
+It was a medium ceramic top storage jar of 1.04 per unit. This seems like a cheap price. The customer purchased 74215 units but returned them all.
+
+```{r}
+nonadf %>% 
+  filter(CustomerID == 12346)
+```
+
+Like I mentioned in the beginning of Data Preparation session, I want to assign score for recency, frequency, and monetary value. These scores will help me to assign segment for each customer. I will assign 4 scores (1, 2, 3, 4) with 1 representing the best, and 4 representing the worst.
+
+For recency, the best scenario is for the lowest recency, meaning a customer purchased something very recent.  
+
+For both frequency and monetary value, the best scenario is for the highest frequency and value, meaning a customer purchased many time and spent a lot of money. 
+
+One of the easiest way to assign score is based on quantiles. Here, I'll use 25%, 50%, and 75% quantiles. 
+
+```{r}
+rq <- quantile(rfm_df$recency, c(0.25, 0.5, 0.75))
+fq <- quantile(rfm_df$frequency, c(0.25, 0.5, 0.75))
+mq <- quantile(rfm_df$monetary_value, c(0.25, 0.5, 0.75))
+
+rfm_df <- rfm_df %>% 
+  mutate(R = ifelse(recency <= rq[[1]], 1,
+                                  ifelse(recency <= rq[[2]], 2,
+                                         ifelse(recency <= rq[[3]], 3, 4)))) %>% 
+  mutate('F' = ifelse(frequency <= fq[[1]], 4, 
+                      ifelse(frequency <= fq[[2]], 3, 
+                             ifelse(frequency <= fq[[3]], 2, 1)))) %>% 
+  mutate(M = ifelse(monetary_value <= mq[[1]], 4, 
+                      ifelse(monetary_value <= mq[[2]], 3, 
+                             ifelse(monetary_value <= mq[[3]], 2, 1))))
+```
+
 
 
 
