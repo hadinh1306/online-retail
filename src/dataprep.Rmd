@@ -108,6 +108,7 @@ I came across this [resource](https://towardsdatascience.com/find-your-best-cust
 Before I go into calculation and scoring, I want to understand each customer segment I assign to customers. 
 
 | Segment | Description | 
+|---------|-------------|
 | Best Customers | Bought most recently and most often, and spend the most | 
 | Loyal Customers | Buy most frequently | 
 | Big Spenders | Spend the most | 
@@ -222,6 +223,25 @@ rfm_df <- rfm_df %>%
                              ifelse(monetary_value <= mq[[3]], 2, 1))))
 ```
 
+Now that we have scores for recency, frequency, and monetary value, let's find scores for each segment. 
+
+| Segment | Description | RFM score | 
+|---------|-------------|-----------|
+| Best Customers | Bought most recently and most often, and spend the most | 1, 1, 1 | 
+| Loyal Customers | Buy most frequently | ?, 1, ? | 
+| Big Spenders | Spend the most | ?, ?, 1 | 
+| Almost Lost | Haven't purchased for some time, but purchased frequently and spend the most | 3, 1, 1 | 
+| Lost Customers | Haven't purchased for longer time than `Almost Lost` ones, but purchased frequently and spend the most | 4, 1, 1 | 
+| Lost Cheap Customers | Last purchased long ago, purchased few, and spent little | 4, 4, 4 | 
+
+For Loyal Customers and Big Spenders, `?` can either be 1 to 4, as long as RFM combination is not similar to other segments. 
+
+Let's asign segment for each customer. 
+
+```{r}
+# rfm_df %>% 
+#   mutate(segment = ifelse(R))
+```
 
 
 
