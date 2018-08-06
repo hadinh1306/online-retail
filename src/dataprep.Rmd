@@ -128,7 +128,15 @@ max(nonadf$InvoiceDate)
 present = as_date("2011-06-27")
 ```
 
-Now I calculate the recency table including `CustomerID` and `recency` - days since last purchase. Note that for this calculation, there is an assumption: There are many reasons that can lead to a return and there is no record of these reasons in the dataset. Thus, as long as customers make a purchase, we count their good intention toward our business and account this into recency. 
+Now I calculate the recency table including `CustomerID` and `recency` - days since last purchase. Note that for this calculation, there is an assumption: There are many reasons that can lead to a return and there is no record of these reasons in the dataset. Thus, as long as customers make a purchase, we count their good intention toward our business and account this into recency, no matter if they return or not.
+
+Note that there are 2689 customers in this dataset, so we should see at max 2689 observations for our recency, frequency and monetary value tables. 
+
+```{r}
+n_distinct(nonadf$CustomerID)
+```
+
+Below, we only have 2652 observations for recency table. This is because I filter to only have `Quantity` > 0 before calculate recency, avoiding counting return days. There are 37 customers who only returned in this dataset. Since they must have purchased before but that data is not in this dataset, I will filter out these 37 customers in my analysis. 
 
 ```{r}
 (recency_df <- nonadf %>% 
@@ -236,7 +244,7 @@ Now that we have scores for recency, frequency, and monetary value, let's find s
 
 For Loyal Customers and Big Spenders, `?` can either be 1 to 4, as long as RFM combination is not similar to other segments. 
 
-Let's asign segment for each customer. 
+Let's asign segment for each customer. Customers who are not in my list of segments are assigned to `Others` group for now. 
 
 ```{r}
 rfm_df <- rfm_df %>%
@@ -248,8 +256,19 @@ rfm_df <- rfm_df %>%
                                                       ifelse(F == 1, "Loyal Customers", "Others")))))))
 ```
 
+I want to join customer segment with the full dataset for visualization purpose later. 
 
+```{r}
+output_df <- rfm_df %>% 
+  select(CustomerID, segment) %>% 
+  inner_join(nonadf)
+```
 
+I will export this file to csv file and visualize data using Tableau, with an inspiration from this [link](https://www.blastam.com/rfm-analysis-sample-dashboard). 
+
+```{r}
+write_csv(output_df, "../data/segmented_data.csv")
+```
 
 
 
