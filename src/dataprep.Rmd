@@ -239,8 +239,13 @@ For Loyal Customers and Big Spenders, `?` can either be 1 to 4, as long as RFM c
 Let's asign segment for each customer. 
 
 ```{r}
-# rfm_df %>% 
-#   mutate(segment = ifelse(R))
+rfm_df <- rfm_df %>%
+  mutate(segment = ifelse(R == 1 & F == 1 & M == 1, "Best Customer", 
+                          ifelse(R == 3 & F == 1 & M == 1, "Almost Lost",
+                                 ifelse(R == 4 & F == 1 & M == 1, "Lost Customers",
+                                        ifelse(R == 4 & F == 4 & M == 4, "Lost Cheap Customers", 
+                                               ifelse(M == 1, "Big Spenders", 
+                                                      ifelse(F == 1, "Loyal Customers", "Others")))))))
 ```
 
 
