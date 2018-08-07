@@ -2,7 +2,9 @@
 title: "EDA"
 author: "Ha Dinh"
 date: '2018-08-02'
-output: html_document
+output: 
+  html_document:
+    keep_md: yes
 ---
 
 ```{r setup, warning=FALSE}
@@ -16,7 +18,7 @@ library(stringr)
 Load data.
 
 ```{r}
-df <- read_csv("../data/online_retail.csv")
+df <- read_csv("../data/raw/online_retail.csv")
 head(df)
 ```
 
@@ -260,14 +262,13 @@ I want to join customer segment with the full dataset for visualization purpose 
 
 ```{r}
 output_df <- rfm_df %>% 
-  select(CustomerID, segment) %>% 
   inner_join(nonadf)
 ```
 
 I will export this file to csv file and visualize data using Tableau, with an inspiration from this [link](https://www.blastam.com/rfm-analysis-sample-dashboard). 
 
 ```{r}
-write_csv(output_df, "../data/segmented_data.csv")
+write_csv(output_df, "../data/clean/segmented_data.csv")
 ```
 
 
