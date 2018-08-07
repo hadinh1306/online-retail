@@ -30,6 +30,7 @@ There are 240,007 observations of 8 variables as follow:
 
 ## **Project Directory**
 
+```
 |- data
 |  -- raw                     Includes raw data
 |  -- clean                   Includes clean data
@@ -38,7 +39,7 @@ There are 240,007 observations of 8 variables as follow:
 |- LICENSE                    MIT License
 |- online-retail.Rproj        R project
 |- README.md                  Project Overview
-
+```
 
 
 
