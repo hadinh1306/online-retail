@@ -29,6 +29,8 @@ Look at the structure of data to see if we need to transform any variables for l
 ```{r}
 str(df)
 summary(df)
+
+n_distinct(df$Country)
 ```
 
 From data summary, 
@@ -262,13 +264,17 @@ I want to join customer segment with the full dataset for visualization purpose 
 
 ```{r}
 output_df <- rfm_df %>% 
+  select(CustomerID, segment) %>% 
   inner_join(nonadf)
 ```
 
-I will export this file to csv file and visualize data using Tableau, with an inspiration from this [link](https://www.blastam.com/rfm-analysis-sample-dashboard). 
+I'm also curious of the RFM data, so I'll output `rfm_df` to further investigate it through visualization.
+
+I will export csv files to visualize data using Tableau. 
 
 ```{r}
 write_csv(output_df, "../data/clean/segmented_data.csv")
+write_csv(rfm_df, "../data/clean/rfm.csv")
 ```
 
 
