@@ -26,7 +26,7 @@ There are 240,007 observations of 8 variables as follow:
 ## **Project Deliveries**
 
 1. Step by step [instruction](doc/dataprep.md) for data wrangling
-2. Tableau Dashboard (TBD)
+2. [Tableau Dashboard](https://public.tableau.com/profile/ha.dinh#!/vizhome/SegmentPerformance-OnlineRetailStore/segperformance) on Tableau Public 
 
 ## **Project Directory**
 
