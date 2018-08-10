@@ -7,33 +7,81 @@ output:
     keep_md: yes
 ---
 
+This document is a step-by-step instruction of how to use data wrangling in R to segment customers using **R**ecency-**F**requency-**M**onetary Value method. 
+
+# RMF and Customer Segmentation
+
+RFM stands for: 
+
+- RECENCY (R): Days since last purchase
+- FREQUENCY (F): Total number of purchases
+- MONETARY VALUE (M): Total money this customer spent
+
+So how does RFM relate to customer segmentation? In this project, I choose 6 customer segemts that can be easily identified through RFM, which are Best Customers, Loyal Customers, Big Spenders, Almost Lost, Lost, and Lost Cheap Customers. Let's describe our segments in terms of RFM. 
+
+- Best Customers are those who buy most recently (**R**) and most often (**F**), and spend the most (**M**).
+- Loyal Customers are those who buy most frequently (**F**).
+- Big Spenders are those who spend the most (**M**).
+- Almost Lost Customers are those who haven't purchased for some time (**R**), but purchased frequently (**F**) and spend the most (**M**).
+- Lost Customers are those who haven't purchased for longer time than `Almost Lost` ones (**R**), but purchased frequently (**F**) and spend the most (**M**). 
+- Lost Cheap Customers are those who last purchased long ago (**R**), purchased few (**F**), and spent little (**M**).
+
+My goal is to calculate recency, frequency and monetary value for each customer. Then I compute a score for each customer based on his/her RMF results, and assign customer segment based on his/her score. 
+
+# Get set up for the tutorial
+
+Before getting into coding, if you don't have R in your laptop, please follow this [instruction](https://github.com/hadinh1306/workshop-materials/blob/master/Misc/Download-instruction.md) to install R and RStudio.
+
+Below are *packages* you need to load. Each package contains functions that are used for calculations and data manipulation in this tutorial. If you don't have these packages in R, please delete the `#` in front of `install.packages()` and run the code line to install each package. It will take sometimes to finish the installment, especially for `dplyr`. 
+
+**Tips:**
+- To run a specific line of code, put the cursor to that line, and press `Command + R` (for Mac) or `Ctrl + R` (for Windows). 
+- To run multiple lines of code, highlight those lines, and press `Command + R` (for Mac) or `Ctrl + R` (for Windows).
+- To run a whole code chunk, the fastest way is to click the green play button on the top right of your chunk. 
+
 ```{r setup, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+# Install new packages
+
+# install.packages("readr")
+# install.packages("dplyr")
+# install.packages("lubridate")
+
+# Load packages
+
 library(readr)
 library(dplyr)
 library(lubridate)
-library(stringr)
 ```
 
-Load data.
+Like I mentioned in the project's [README](../README.md), the data I use in this tutorial is from [Online Retail](https://www.kaggle.com/sanjeet41/online-retail) dataset on Kaggle. You can download it directly from [here](https://www.kaggle.com/sanjeet41/online-retail/downloads/online-retail.zip/3).
 
-```{r}
+Now we load the data and look at the top 6 rows of the dataset.
+
+```{r, message=FALSE}
+# Load data
 df <- read_csv("../data/raw/online_retail.csv")
+
+# Look at the top 6 rows
 head(df)
 ```
 
+We have all packages and the data we need, let's get started.
+
 # Data Structure and Validation
 
-Look at the structure of data to see if we need to transform any variables for later analysis, or if we have missing values and any outliers.
+For any analysis project, understanding data structure and validating data are important. These tasks help us to see if we need to transform any variables for later analysis, or if we have missing values and any outliers that might affect our analysis. 
 
 ```{r}
+# View structure of data 
 str(df)
-summary(df)
 
-n_distinct(df$Country)
+# View statistical summary of each variable
+summary(df)
 ```
 
-From data summary, 
+Looking at both data structure and statistical summary,  
 
 1. I confirm that `UnitPrice` is larger than 0. `Quantity` has negative numbers which indicate returns.
 
@@ -41,7 +89,7 @@ From data summary,
 
 There are 38 countries present in this dataset, but 92% of observations belong to United Kingdom. Customer segmentation in different countries can be different. Thus, for this project, I'll focus on United Kingdom only. 
 
-```{r}
+```{r, warning=FALSE}
 df %>% 
   group_by(Country) %>% 
   summarise(n = n()) %>% 
@@ -55,7 +103,7 @@ ukdf <- df %>%
   filter(Country == "United Kingdom")
 ```
 
-3. There are 66659 missing values in `CustomerID`. Since the purpose of this project is to segment customers using RFM methods, we need `CustomerID` to identify each customer. We can't identify through `InvoiceNo` since each customer can purchase more than 1 time. Thus, I'll remove all of these missing values. 
+3. I see that there are 66,659 missing values in `CustomerID`. Since the purpose of this project is to segment customers using RFM methods, we need `CustomerID` to identify each customer. We can't identify through `InvoiceNo` since each customer can purchase more than 1 time. Thus, I'll remove all observations with missing `CustomerID`. 
 
 ```{r}
 summary(ukdf)
@@ -66,59 +114,50 @@ nonadf <- ukdf %>%
   filter(!is.na(CustomerID))
 ```
 
-2. Transform `InvoiceDate` from character to date form, removing hour and minute information. Note that transactions were recorded from December 1st, 2010.
+2. I need to transform `InvoiceDate` from character to date form, removing hour and minute information.
 
 ```{r}
 nonadf$InvoiceDate <- as_date(mdy_hm(nonadf$InvoiceDate))
 ```
 
-3. There are outliers in `Quantity` and `UnitPrice`. Check distribution.
-
-Ploting ECDF graphs for both `Quantity` and `UnitPrice`, I see that there are less than 5 outliers for each variable.
+Now I look at how long the data was recorded.
 
 ```{r}
-plot(ecdf(nonadf$Quantity))
-plot(ecdf(nonadf$UnitPrice))
+paste("The first date recorded in this dataset is", min(nonadf$InvoiceDate)) 
+paste("The last date recorded in this dataset is", max(nonadf$InvoiceDate))
 ```
 
-I'm curious which customer(s) related to the 2 outliers in `Quantity`. It turns out that they belong to a single customer. He/she purchased a lot and returned them all.  
+3. I see that there might be outliers in `Quantity` and `UnitPrice`, so I want to check their distributions.
+
+Ploting ECDF (empirical distribution function) graphs for both `Quantity` and `UnitPrice`, I see that there are less than 5 outliers for each variable.
+
+```{r}
+plot(ecdf(nonadf$Quantity), main = "ECDF plot of Quantity", 
+                            xlab = "Quantity (units)",
+                            ylab = "Cumulative Probability")
+
+plot(ecdf(nonadf$UnitPrice), main = "ECDF plot of Unit Price",
+                             xlab = "Unit Price (£)",
+                             ylab = "Cumulative Probability")
+```
+
+I'm curious which customer(s) related to the 2 outliers in `Quantity`. It turns out that they belong to a single customer. He/she purchased a lot and returned them all.
 
 ```{r}
 nonadf %>% 
   filter(Quantity > 50000 | Quantity < -50000)
 ```
 
-Let's check out `UnitPrice` outliers. Although from the ECDF plot, it appears that there are only 3 outliers, base on this table below, there are actually 4. 
-
-3 of them belong to customer `16029`. He/she bought a `POSTAGE` worths 8142.75 and returned it, and also return a `Manual` worths 6930 on the same day. 
+Let's check out `UnitPrice` outliers. Although from the ECDF plot, it appears that there are only 3 outliers, base on this table below, there are actually 4. Three of them belong to customer `16029`. He/she bought a `POSTAGE` worths 8142.75 pounds and returned it, and also return a `Manual` worths 6930 pounds on the same day. 
 
 ```{r}
 nonadf %>% 
   filter(UnitPrice > 5000)
 ```
 
-For now, I decide to keep all outliers since there is no clear insights about them, and there are less than 5 of them. 
+For now, I decide to keep all outliers since the purpose of this project is not to build any statistical models based on current data, but to do data wrangling and compute RFM score for each customer and come up with his/her segment.  
 
 # Data Preparation
-
-The project focuses on customer segmentation using RFM, which stands for: 
-
-- RECENCY (R): Days since last purchase
-- FREQUENCY (F): Total number of purchases
-- MONETARY VALUE (M): Total money this customer spent
-
-I came across this [resource](https://towardsdatascience.com/find-your-best-customers-with-customer-segmentation-in-python-61d602f9eee6) and find it helpful to refer to for RFM model. My goal is to assign score for RMF and then segment for each customer base on his/her score. To do this, I need to calculate recency, frequency, and monetary value. 
-
-Before I go into calculation and scoring, I want to understand each customer segment I assign to customers. 
-
-| Segment | Description | 
-|---------|-------------|
-| Best Customers | Bought most recently and most often, and spend the most | 
-| Loyal Customers | Buy most frequently | 
-| Big Spenders | Spend the most | 
-| Almost Lost | Haven't purchased for some time, but purchased frequently and spend the most | 
-| Lost Customers | Haven't purchased for longer time than `Almost Lost` ones, but purchased frequently and spend the most | 
-| Lost Cheap Customers | Last purchased long ago, purchased few, and spent little | 
 
 ## Recency
 
@@ -132,19 +171,25 @@ max(nonadf$InvoiceDate)
 present = as_date("2011-06-27")
 ```
 
-Now I calculate the recency table including `CustomerID` and `recency` - days since last purchase. Note that for this calculation, there is an assumption: There are many reasons that can lead to a return and there is no record of these reasons in the dataset. Thus, as long as customers make a purchase, we count their good intention toward our business and account this into recency, no matter if they return or not.
+Now I calculate the recency table including `CustomerID` and `recency` - days since last purchase. 
 
-Note that there are 2689 customers in this dataset, so we should see at max 2689 observations for our recency, frequency and monetary value tables. 
+Note that for this calculation, there is an assumption: 
+
+> There are many reasons that can lead to a return and there is no record of these reasons in the dataset. Thus, as long as customers make a purchase, we count their good intention toward our business and account this into recency, no matter if they return or not.
+
+Also note that there are 2,689 customers in this dataset, so we should see at max 2,689 observations for our recency, frequency and monetary value tables. 
 
 ```{r}
 n_distinct(nonadf$CustomerID)
 ```
 
-Below, we only have 2652 observations for recency table. This is because I filter to only have `Quantity` > 0 before calculate recency, avoiding counting return days. There are 37 customers who only returned in this dataset. Since they must have purchased before but that data is not in this dataset, I will filter out these 37 customers in my analysis. 
+Below, we only have 2,652 observations for recency table. This is because I filter to only have positive `Quantity` before calculate recency, avoiding counting return days. There are 37 customers who only returned in this dataset. Since they must have purchased before but that data is not in this dataset, I will filter out these 37 customers in my analysis. 
 
 ```{r}
 (recency_df <- nonadf %>% 
+   # Filter to only have positive Quantity
   filter(Quantity > 0) %>% 
+   # Calculate recency for each customer
   group_by(CustomerID) %>% 
   summarise(recency = as.integer(present - max(InvoiceDate))))
 ```
@@ -155,23 +200,13 @@ To calculate the total number of purchases, I need to consider number of returns
 
 `Total number of purchases = number of purchases - number of returns`
 
-From my quick inspection for `UnitPrice` outliers above, I see that only returns have `InvoiceNo` starting with `C`. I confirm here that only `InvoiceNo`s starting with `C` are returns, while `InvoiceNo`s starting with numbers are purchases.
-
-```{r}
-# check if there are any InvoiceNo starting with C have positive quantity 
-sum(nonadf[str_detect(nonadf$InvoiceNo, "^C"), ]$Quantity > 0)
-
-# check if there are any InvoiceNo starting with numbers have negative quantity 
-sum(nonadf[str_detect(nonadf$InvoiceNo, "^[:digit:]"), ]$Quantity < 0)
-```
-
-Now I calculate the number of purchases for each `CustomerID`.
+Let's calculate the number of purchases for each `CustomerID`.
 
 ```{r}
 (frequency_df <- nonadf %>% 
   # create new column to detect return; 
   # if return then 0, else (if purchase) then 1
-  mutate(return = ifelse(str_detect(nonadf$InvoiceNo, "^C"), 0, 1)) %>% 
+  mutate(return = ifelse(Quantity < 0, 0, 1)) %>% 
   # calculate number of purchases for each customer
   group_by(CustomerID) %>% 
   summarise(frequency = sum(return)))
@@ -191,9 +226,11 @@ To calculate the total money each customer spend, I take the sum of his/her reve
 
 ## RFM table 
 
-Now I combine results from recency, frequency, and monetary value tables to a single RFM dataframe. 
+Now I combine results from recency, frequency, and monetary value tables to a single RFM table. 
 
 ```{r}
+# We don't need to state which variable(s) these tables are joining on
+# because they have a common variable `CustomerID`
 rfm_df <- inner_join(recency_df, frequency_df) %>% 
   inner_join(money_df)
 
@@ -203,14 +240,14 @@ head(rfm_df, 5)
 
 Customer `12346` made only 1 purchase 160 days ago, and returned his/her purchase. This customer is certainly not our best one. Let's see what he/she purchased and returned. 
 
-It was a medium ceramic top storage jar of 1.04 per unit. This seems like a cheap price. The customer purchased 74215 units but returned them all.
+It was a medium ceramic top storage jar of 1.04 pounds per unit. This seems like a cheap price. The customer purchased 74215 units but returned them all.
 
 ```{r}
 nonadf %>% 
   filter(CustomerID == 12346)
 ```
 
-Like I mentioned in the beginning of Data Preparation session, I want to assign score for recency, frequency, and monetary value. These scores will help me to assign segment for each customer. I will assign 4 scores (1, 2, 3, 4) with 1 representing the best, and 4 representing the worst.
+Like I mentioned in the beginning, I want to assign score for recency, frequency, and monetary value. These scores will help me to assign segment for each customer. I will assign 4 scores (1, 2, 3, 4) with 1 representing the best, and 4 representing the worst.
 
 For recency, the best scenario is for the lowest recency, meaning a customer purchased something very recent.  
 
@@ -224,9 +261,12 @@ fq <- quantile(rfm_df$frequency, c(0.25, 0.5, 0.75))
 mq <- quantile(rfm_df$monetary_value, c(0.25, 0.5, 0.75))
 
 rfm_df <- rfm_df %>% 
+  # rq[[1]] takes the 25%, rq[[2]] takes the 50%, rq[[3]] takes the 75% quantile
   mutate(R = ifelse(recency <= rq[[1]], 1,
                                   ifelse(recency <= rq[[2]], 2,
                                          ifelse(recency <= rq[[3]], 3, 4)))) %>% 
+  # Have to put F inside a quote 
+  # because without a quote, it can be mistaken as the abbreviation of FALSE
   mutate('F' = ifelse(frequency <= fq[[1]], 4, 
                       ifelse(frequency <= fq[[2]], 3, 
                              ifelse(frequency <= fq[[3]], 2, 1)))) %>% 
@@ -239,7 +279,7 @@ Now that we have scores for recency, frequency, and monetary value, let's find s
 
 | Segment | Description | RFM score | 
 |---------|-------------|-----------|
-| Best Customers | Bought most recently and most often, and spend the most | 1, 1, 1 | 
+| Best Customers | Buy most recently and most often, and spend the most | 1, 1, 1 | 
 | Loyal Customers | Buy most frequently | ?, 1, ? | 
 | Big Spenders | Spend the most | ?, ?, 1 | 
 | Almost Lost | Haven't purchased for some time, but purchased frequently and spend the most | 3, 1, 1 | 
@@ -260,23 +300,27 @@ rfm_df <- rfm_df %>%
                                                       ifelse(F == 1, "Loyal Customers", "Others")))))))
 ```
 
-I want to join customer segment with the full dataset for visualization purpose later. 
+# Export Data
+
+Congratulations! You have assigned segment for each customer. We need to export data for visualizations. 
+
+There are 2 files I want to export: 
+
+1. A table which includes all customer transactions, along with customer segments. This table helps to visualize segment performance - how each customer segment contributes to our company's revenue.
 
 ```{r}
 output_df <- rfm_df %>% 
   select(CustomerID, segment) %>% 
   inner_join(nonadf)
+
+# Export data as csv file
+write_csv(output_df, "../data/clean/segmented_data.csv")
 ```
 
-I'm also curious of the RFM data, so I'll output `rfm_df` to further investigate it through visualization.
-
-I will export csv files to visualize data using Tableau. 
+2. A table which includes RFM data to investigate if the way we segment customers make sense. 
 
 ```{r}
-write_csv(output_df, "../data/clean/segmented_data.csv")
 write_csv(rfm_df, "../data/clean/rfm.csv")
 ```
-
-
 
 
