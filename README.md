@@ -34,7 +34,7 @@ There are 240,007 observations of 8 variables as follow:
 ## **Project Deliveries**
 
 1. Step by step [instruction](doc/dataprep.md) for data wrangling in R
-2. [Tableau Dashboard](https://public.tableau.com/profile/ha.dinh#!/vizhome/SegmentPerformance-OnlineRetailStore/segperformance) on Tableau Public 
+2. [Tableau Dashboard](https://public.tableau.com/profile/ha.dinh#!/vizhome/SegmentPerformance-OnlineRetailStore/segperformance) on Tableau Public. Since Tableau does not allow to upload full data due to its size, I only visualize data from December 2010 to April 2011.
 
 ## **Project Directory**
 
@@ -49,8 +49,12 @@ There are 240,007 observations of 8 variables as follow:
 |- README.md                  Project Overview
 ```
 
-## **Challenges & Future Plans**
+## **Limitation**
 
-TBD
+1. This customer segmentation is based solely on customer transactions. If we have data on customer demographic (ie. gender, age, location, yearly salary), we might discover more interesting insights. 
+2. Not all customers are segmented due to a lack of `CustomerID` and purchase information. Some customers only have return transactions, but I need both purchase and return data to segment customers. 
 
+
+## **Future Plan**
+I want to try unsupervised learning `kmeans` on this data to see if this method segments customer similarly or differently from RFM. 
 
